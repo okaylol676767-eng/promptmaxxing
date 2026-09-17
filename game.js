@@ -334,6 +334,7 @@ function shoot() {
   if (game.cylinder <= 0) { sfx.dryfire(); log('empty. press R.', 'bad'); return; }
   game.cylinder--; game.recoil = 1; game.muzzle = 1; game.shake = 6;
   sfx.shot();
+  window.dispatchEvent(new Event('gun3d-kick')); // 3D viewmodel recoil
   // hit test: nearest zombie whose body contains the crosshair
   let hit = null, bestDepth = -1;
   for (const z of zombies) {
@@ -359,6 +360,7 @@ function reload() {
   const need = game.magSize - game.cylinder;
   if (need === 0 || game.ammo <= 0) { if (game.ammo <= 0) log('no rounds left.', 'bad'); return; }
   game.reloading = 2.0; sfx.reload();
+  window.dispatchEvent(new Event('gun3d-reload')); // 3D viewmodel reload dip
 }
 function finishReload() {
   game.reloading = 0;
@@ -647,6 +649,7 @@ function drawCorpse(c) {
 /* FPS viewmodel — revolver bottom-right, recoil kick + reload dip */
 function drawGunViewmodel() {
   if (game.state === 'title') return;
+  if (window.__gun3dReady) return; // Spline 3D gun took over
   const reloading = game.reloading > 0;
   const kick = game.recoil;
   const dip = reloading ? Math.sin(clamp(1 - game.reloading / 2.0, 0, 1) * Math.PI) * 90 : 0;
@@ -769,6 +772,7 @@ function tick(dt) {
 requestAnimationFrame(loop);
 window.__pump = (seconds, step = 0.05) => { for (let t = 0; t < seconds; t += step) tick(step); };
 window.__dbg = () => ({ state: game.state, level: game.level, cylinder: game.cylinder, ammo: game.ammo, kills: game.kills, waveTotal: game.waveTotal, alive: zombies.length, hp: Math.round(playerHP.v), reloading: game.reloading });
+window.__sethp = (v) => { playerHP.v = v; };
 window.__aimFire = () => {
   const z = zombies.filter(q => !q.dead).sort((a, b) => b.y - a.y)[0]; // most dangerous first
   if (!z) return 'no targets';

@@ -26,6 +26,36 @@
   /* ammo bottom right */
   #ammo { bottom: 16px; right: 16px; font-size: 22px; letter-spacing: 4px; color: var(--amber); text-shadow: 0 0 12px rgba(251,191,36,.4); }
   #ammo .rl { font-size: 10px; color: var(--bad); letter-spacing: 2px; animation: blink 0.7s infinite; }
+
+  /* ---------- 3D gun (Spline) ---------- */
+  #gun3d-wrap {
+    position: fixed; right: -4vw; bottom: -7vh; width: 48vw; height: 52vh;
+    z-index: 8; pointer-events: none; opacity: 0; transition: opacity .8s;
+    transform: translate(calc(var(--ax, 0px) + var(--kx, 0px)), calc(var(--ay, 0px) + var(--kx, 0px) * 0.35)) rotate(var(--kr, 0deg));
+    will-change: transform;
+  }
+  #gun3d-wrap.ready { opacity: 1; }
+  #gun3d-inner {
+    width: 100%; height: 100%;
+    /* crop to the gun: mask out the scene's baked-in title text up top */
+    -webkit-mask-image: radial-gradient(ellipse 58% 48% at 50% 72%, #000 46%, transparent 74%);
+    mask-image: radial-gradient(ellipse 58% 48% at 50% 72%, #000 46%, transparent 74%);
+    filter: brightness(0.85) saturate(0.7) contrast(1.08);
+  }
+  /* night grade lives INSIDE the masked element so edges feather correctly */
+  #gun3d-inner::before {
+    content: ''; position: absolute; inset: 0; z-index: 2;
+    background: rgba(139,92,246,0.09); mix-blend-mode: screen; pointer-events: none;
+  }
+  #gun3d-inner::after {
+    content: ''; position: absolute; inset: 0; z-index: 3;
+    background: linear-gradient(180deg, rgba(6,7,9,0.9) 0%, rgba(20,14,38,0.22) 45%, rgba(6,7,9,0.38) 100%);
+    mix-blend-mode: multiply; pointer-events: none;
+  }
+  #gun3d { width: 100%; height: 100%; display: block; }
+  #gun3d-inner { position: relative; }
+  #gun3d-inner.reload { animation: gundip 2s ease-in-out; }
+  @keyframes gundip { 0% { transform: none; } 35% { transform: translateY(75%) rotate(10deg); } 70% { transform: translateY(40%) rotate(-4deg); } 100% { transform: none; } }
   @keyframes blink { 50% { opacity: .3; } }
 
   /* kills + objective */
@@ -81,6 +111,44 @@
 </div>
 
 <div id="ammo" class="hud">●●●●●● <span style="color:var(--dim)">+0</span></div>
+
+<div id="gun3d-wrap">
+  <div id="gun3d-inner"><canvas id="gun3d"></canvas></div>
+</div>
+<script type="module">
+(async () => {
+  const wrap = document.getElementById('gun3d-wrap');
+  const inner = document.getElementById('gun3d-inner');
+  try {
+    let mod;
+    try { mod = await import('https://unpkg.com/@splinetool/runtime@1/build/runtime.js'); }
+    catch { mod = await import('https://esm.sh/@splinetool/runtime@1'); }
+    const { Application } = mod;
+    const app = new Application(document.getElementById('gun3d'));
+    await app.load('https://prod.spline.design/N9CtxBjYbo1M3O4q/scene.splinecode');
+    window.__gun3dReady = true;
+    wrap.classList.add('ready');
+    // recoil kick
+    let kick = 0;
+    window.addEventListener('gun3d-kick', () => { kick = 1; });
+    window.addEventListener('gun3d-reload', () => { inner.classList.remove('reload'); void inner.offsetWidth; inner.classList.add('reload'); });
+    // aim parallax
+    window.addEventListener('mousemove', (e) => {
+      const nx = e.clientX / window.innerWidth - 0.5, ny = e.clientY / window.innerHeight - 0.5;
+      wrap.style.setProperty('--ax', (nx * 14).toFixed(2) + 'px');
+      wrap.style.setProperty('--ay', (ny * 10).toFixed(2) + 'px');
+    });
+    (function decay() {
+      kick = Math.max(0, kick - 0.07);
+      wrap.style.setProperty('--kx', (kick * 30).toFixed(2) + 'px');
+      wrap.style.setProperty('--kr', (kick * 5).toFixed(2) + 'deg');
+      requestAnimationFrame(decay);
+    })();
+  } catch (err) {
+    console.warn('[gun3d] Spline scene unavailable — 2D viewmodel stays. Reason:', err && err.message);
+  }
+})();
+</script>
 
 <!-- title -->
 <div id="overlay-title" class="overlay">
