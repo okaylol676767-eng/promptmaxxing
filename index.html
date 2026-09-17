@@ -94,6 +94,18 @@
   .lvl span { font-size: 11px; color: var(--dim); line-height: 1.6; }
   .lvl i { float: right; font-style: normal; font-size: 10px; color: var(--neon); }
 
+  /* low stamina warning */
+  #stamwarn {
+    position: fixed; top: 18vh; left: 50%; transform: translateX(-50%);
+    z-index: 12; pointer-events: none;
+    font-size: 17px; font-weight: bold; letter-spacing: 5px; color: #fca5a5;
+    text-shadow: 0 0 18px rgba(220,38,38,.8), 0 0 4px rgba(0,0,0,.9);
+    border: 1px solid rgba(220,38,38,.6); background: rgba(40,8,8,.55);
+    padding: 8px 22px; border-radius: 6px;
+    animation: warnblink 0.65s steps(2, start) infinite;
+  }
+  @keyframes warnblink { 50% { opacity: 0.25; } }
+
   #death-cause, #go-cause { color: var(--bad); }
   #lc-stats, #win-stats { color: var(--amber); letter-spacing: 2px; }
 </style>
@@ -108,7 +120,11 @@
 <div id="vitals" class="hud">
   <div class="bar-label">HEALTH</div>
   <div class="bar"><div class="bar-fill" id="hp-fill"></div></div>
+  <div class="bar-label" style="margin-top:8px">STAMINA</div>
+  <div class="bar"><div class="bar-fill" id="stam-fill" style="background:var(--good)"></div></div>
 </div>
+
+<div id="stamwarn" class="hidden">⚠ LOW STAMINA</div>
 
 <div id="ammo" class="hud">●●●●●● <span style="color:var(--dim)">+0</span></div>
 

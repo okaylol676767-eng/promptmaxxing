@@ -25,6 +25,8 @@ resize();
 
 /* ---------------- palette ---------------- */
 const GUN = { name: 'AK-47', rpm: 600, dmg: 55, dmgHead: 250, spread: 0.035, reload: 2.0 };
+/* stamina: per-shot cost grows while auto-firing; winded at 0 (no firing until 30) */
+const STAM = { max: 100, shotBase: 2.2, heatStep: 1.35, heatMax: 3.2, regen: 14, regenDelay: 0.7, windedFloor: 30 };
 const COL = {
   bg: '#060709', text: '#c4b5fd', neon: '#8b5cf6', dim: '#6d6a85',
   blood: '#7a0e14', bloodDark: '#45080b', gore: '#5c0a10',
@@ -254,6 +256,7 @@ const LANES = [0.12, 0.3, 0.5, 0.7, 0.88];   // approach lanes (x fraction)
 const game = {
   level: 0, state: 'title',          // title | levelstart | playing | levelclear | gameover | won
   ammo: 0, magSize: 30, cylinder: 30, reloading: 0,
+  stam: STAM.max, stamHeat: 0, stamRegenT: 0, winded: false,
   kills: 0, totalKills: 0, waveTotal: 0, spawnT: 0, spawnSide: 0,
   recoil: 0, muzzle: 0, shake: 0, hitFlash: 0, redPulse: 0, t: 0,
   breath: 0, hurtT: 0, banner: 0
@@ -331,9 +334,20 @@ function updateZombies(dt) {
 function shoot() {
   if (game.state !== 'playing') return;
   if (game.reloading > 0) return;
+  if (game.winded) return; // gasping — can't hold the rifle steady
   if (game.cylinder <= 0) { sfx.dryfire(); log('mag empty — R to swap', 'bad'); return; }
+  // stamina check: a shot needs at least 1 stamina behind it
+  if (game.stam < 1) return;
   game.cylinder--; game.recoil = 1; game.muzzle = 1; game.shake = 6;
   game.shotsFired = (game.shotsFired || 0) + 1;
+  // stamina: cost escalates the longer you hold the trigger
+  game.stamHeat = Math.min(STAM.heatMax, game.stamHeat + STAM.heatStep);
+  game.stam = Math.max(0, game.stam - STAM.shotBase * game.stamHeat);
+  game.stamRegenT = STAM.regenDelay;
+  if (game.stam <= 0 && !game.winded) {
+    game.winded = true;
+    log('lungs burning — rifle sagging. let go and breathe.', 'bad');
+  }
   sfx.shot();
   window.dispatchEvent(new Event('gun3d-kick')); // 3D viewmodel recoil
   // AK spread: aim point wanders at range (first shot accurate)
@@ -447,6 +461,7 @@ function startLevel(i) {
   game.cylinder = Math.min(game.magSize, total);
   game.ammo = total - game.cylinder;
   game.shotsFired = 0;
+  game.stam = STAM.max; game.stamHeat = 0; game.stamRegenT = 0; game.winded = false; game.stamWarn = false;
   game.kills = 0; game.waveTotal = L.wave; game.spawned = 0; game.spawnT = 1.2; game.spawnSide = 0;
   zombies = []; corpses = []; particles = []; bloodStains = []; floaters = [];
   playerHP.v = 100;
@@ -517,6 +532,22 @@ function update(dt) {
   // low hp heartbeat + hurt flash decay
   if (playerHP.v < 35) { game.breath -= dt; if (game.breath <= 0) { game.breath = 1.05; sfx.heart(); } }
   game.hitFlash = Math.max(0, game.hitFlash - dt * 2);
+
+  // --- stamina ---
+  // heat cools slowly when not shooting this frame
+  if (game.stamRegenT > 0) game.stamRegenT -= dt;
+  else {
+    game.stamHeat = Math.max(0, game.stamHeat - dt * 1.6);
+    const regen = STAM.regen * (1 - game.stamHeat * 0.22);
+    if (game.stam < STAM.max) game.stam = Math.min(STAM.max, game.stam + regen * dt);
+    if (game.winded && game.stam >= STAM.windedFloor) {
+      game.winded = false;
+      log('breath back. steady hands.', 'good');
+    }
+  }
+  // hard floor: winded persists until recovered; regen runs even while winded
+  if (game.winded && game.stam >= STAM.windedFloor) game.winded = false;
+  game.stamWarn = game.stam < 30;
 }
 
 /* ============================================================
@@ -749,6 +780,8 @@ function renderCrosshair() {
    HUD
    ============================================================ */
 const hpFill = document.getElementById('hp-fill');
+const stamFill = document.getElementById('stam-fill');
+const stamWarn = document.getElementById('stamwarn');
 const ammoEl = document.getElementById('ammo');
 let lastAmmoSnapshot = '';
 const invEl = document.getElementById('inv');
@@ -756,6 +789,10 @@ const objectiveEl = document.getElementById('objective');
 function updateHUD() {
   hpFill.style.width = clamp(Math.max(0, playerHP.v), 0, 100) + '%';
   hpFill.style.background = playerHP.v < 30 ? '#dc2626' : '#8b5cf6';
+  // stamina bar: green → amber → red, red while winded
+  stamFill.style.width = clamp(game.stam, 0, 100) + '%';
+  stamFill.style.background = game.winded ? '#dc2626' : game.stam < 30 ? '#f87171' : game.stam < 55 ? '#fbbf24' : '#4ade80';
+  stamWarn.classList.toggle('hidden', !(game.stam < 30 && game.state === 'playing'));
   // AK mag readout: bars for the 30, count for reserves
   let mag = '';
   for (let i = 0; i < game.magSize; i += 3) mag += i < game.cylinder ? '▮' : '▯';
@@ -790,7 +827,7 @@ function tick(dt) {
 }
 requestAnimationFrame(loop);
 window.__pump = (seconds, step = 0.05) => { for (let t = 0; t < seconds; t += step) tick(step); };
-window.__dbg = () => ({ state: game.state, level: game.level, cylinder: game.cylinder, ammo: game.ammo, kills: game.kills, waveTotal: game.waveTotal, alive: zombies.length, hp: Math.round(playerHP.v), reloading: game.reloading });
+window.__dbg = () => ({ state: game.state, level: game.level, cylinder: game.cylinder, ammo: game.ammo, kills: game.kills, waveTotal: game.waveTotal, alive: zombies.length, hp: Math.round(playerHP.v), reloading: game.reloading, stam: Math.round(game.stam), heat: game.stamHeat.toFixed(2), winded: game.winded });
 window.__sethp = (v) => { playerHP.v = v; };
 window.__aimFire = () => {
   const z = zombies.filter(q => !q.dead).sort((a, b) => b.y - a.y)[0]; // most dangerous first
