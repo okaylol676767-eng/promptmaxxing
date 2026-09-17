@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>POST APOCALYPTIC INDIA — prototype</title>
+<title>POST APOCALYPTIC INDIA — v0.2 WAVES</title>
 <link rel="icon" href="data:,">
 <style>
   :root {
-    --bg: #0a0a0f; --panel: #0d0d17; --border: #2d1f4d;
+    --bg: #060709; --panel: #0c0d14; --border: #2d1f4d;
     --neon: #8b5cf6; --neon-soft: #a78bfa; --text: #c4b5fd; --dim: #6d6a85;
     --bad: #f87171; --good: #4ade80; --amber: #fbbf24;
   }
@@ -15,123 +15,101 @@
   html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg); font-family: 'Consolas', 'Menlo', monospace; }
   #game { display: block; width: 100vw; height: 100vh; cursor: crosshair; }
 
-  /* ---------- HUD ---------- */
   .hud { position: fixed; z-index: 10; pointer-events: none; }
-  #vignette { inset: 0; box-shadow: inset 0 0 140px 30px rgba(2,2,6,0.9); transition: box-shadow .3s; z-index: 5; }
 
-  #topleft { top: 16px; left: 16px; width: 260px; }
-  .bar-row { margin-bottom: 8px; }
-  .bar-label { display: flex; justify-content: space-between; font-size: 10px; letter-spacing: 2px; color: var(--dim); margin-bottom: 3px; }
-  .bar { height: 8px; background: #131320; border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
-  .bar-fill { height: 100%; width: 50%; transition: width .2s, background .3s; }
+  /* vitals */
+  #vitals { bottom: 16px; left: 16px; width: 240px; }
+  .bar-row { margin-bottom: 7px; }
+  .bar-label { display: flex; justify-content: space-between; font-size: 9px; letter-spacing: 2px; color: var(--dim); margin-bottom: 3px; }
+  .bar { height: 7px; background: #101018; border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
+  .bar-fill { height: 100%; width: 100%; transition: width .15s, background .3s; }
   #hp-fill { background: var(--neon); }
-  #hunger-fill { background: var(--amber); }
-  #instinct-fill { background: var(--good); }
+  #st-fill { background: var(--good); }
 
-  #inv { bottom: 14px; left: 16px; display: flex; gap: 6px; flex-wrap: wrap; max-width: 60vw; }
-  .inv-item { font-size: 10px; letter-spacing: 1px; color: var(--text); background: rgba(13,13,23,0.85); border: 1px solid var(--border); padding: 4px 8px; border-radius: 3px; }
-  .inv-item.bad { color: var(--bad); border-color: #5b1a1a; animation: blink 1s infinite; }
-  .inv-item.part { color: #22d3ee; border-color: #155e75; }
+  /* noise meter (top center) */
+  #noisebox { top: 14px; left: 50%; transform: translateX(-50%); width: 220px; text-align: center; }
+  #noisebox .lbl { font-size: 9px; letter-spacing: 4px; color: var(--dim); margin-bottom: 4px; }
+  #noisebar { height: 5px; background: #101018; border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
+  #noise-fill { height: 100%; width: 0%; background: var(--neon); transition: width .1s; }
 
-  #dayclock { top: 16px; right: 16px; text-align: right; }
-  #day { font-size: 13px; letter-spacing: 3px; color: var(--text); }
-  #clock { font-size: 11px; letter-spacing: 2px; color: var(--dim); margin-top: 4px; }
+  /* ammo bottom right */
+  #ammo { bottom: 16px; right: 16px; font-size: 20px; letter-spacing: 4px; color: var(--amber); text-shadow: 0 0 12px rgba(251,191,36,.4); }
+  #ammo .rl { font-size: 10px; color: var(--bad); letter-spacing: 2px; animation: blink 0.7s infinite; }
+  @keyframes blink { 50% { opacity: .3; } }
 
-  /* ---------- log ---------- */
-  #logwrap { position: fixed; bottom: 54px; right: 16px; width: 380px; z-index: 10; pointer-events: none; }
-  #logtitle { font-size: 9px; letter-spacing: 3px; color: var(--dim); margin-bottom: 6px; }
+  /* inventory bottom center-right */
+  #inv { bottom: 52px; right: 16px; display: flex; gap: 6px; flex-direction: column; align-items: flex-end; }
+  .inv-item { font-size: 10px; letter-spacing: 1px; color: var(--text); background: rgba(12,13,20,0.85); border: 1px solid var(--border); padding: 4px 8px; border-radius: 3px; }
+  .inv-item i { color: var(--dim); font-style: normal; }
+
+  /* objective top left */
+  #objective { top: 14px; left: 16px; font-size: 11px; letter-spacing: 2px; color: var(--neon-soft); text-shadow: 0 0 10px rgba(139,92,246,.5); max-width: 40vw; }
+
+  /* log */
+  #logwrap { position: fixed; top: 40px; left: 16px; width: 360px; z-index: 9; pointer-events: none; }
   #log { display: flex; flex-direction: column; gap: 3px; }
-  .logline { font-size: 11px; line-height: 1.5; color: var(--text); opacity: .95; transition: opacity 2s; text-shadow: 0 0 8px rgba(139,92,246,.35); }
+  .logline { font-size: 11px; line-height: 1.5; color: var(--text); transition: opacity 2s; text-shadow: 0 0 8px rgba(139,92,246,.3); }
   .logline.good { color: var(--good); }
   .logline.bad { color: var(--bad); }
   .logline.kill { color: #ef4444; }
-  .logline.lie { color: var(--amber); font-style: italic; }
   .logline.obj { color: var(--neon-soft); font-weight: bold; }
 
-  /* ---------- whispers ---------- */
-  #whispers { position: fixed; inset: 0; z-index: 6; pointer-events: none; overflow: hidden; }
-  #whispers span { position: absolute; font-size: 12px; letter-spacing: 4px; color: rgba(139,92,246,0.5); animation: whisperFade 2.6s forwards; }
-  @keyframes whisperFade { 0% { opacity: 0; transform: translateY(6px);} 30% { opacity: .9;} 100% { opacity: 0; transform: translateY(-14px);} }
-  @keyframes blink { 50% { opacity: .4; } }
-
-  /* ---------- overlays ---------- */
-  .overlay { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(5,5,10,0.88); backdrop-filter: blur(3px); }
-  .card { width: min(680px, 92vw); background: var(--panel); border: 1px solid var(--neon); border-radius: 10px; padding: 36px 40px; box-shadow: 0 0 60px rgba(139,92,246,0.18); }
+  /* overlays */
+  .overlay { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(4,5,9,0.9); backdrop-filter: blur(3px); }
+  .card { width: min(700px, 94vw); background: var(--panel); border: 1px solid var(--neon); border-radius: 10px; padding: 34px 40px; box-shadow: 0 0 60px rgba(139,92,246,0.16); }
   .micro { font-size: 10px; letter-spacing: 3px; color: var(--neon); margin-bottom: 10px; }
-  h1 { font-size: 26px; letter-spacing: 2px; color: #e9e4ff; margin-bottom: 14px; font-weight: 700; }
-  .card p { font-size: 13px; line-height: 1.8; color: var(--text); margin-bottom: 12px; }
-  .controls { margin: 18px 0 22px; padding: 14px 16px; background: #0a0a14; border: 1px solid var(--border); border-radius: 6px; font-size: 11px; line-height: 2; color: var(--dim); }
+  h1 { font-size: 25px; letter-spacing: 2px; color: #e9e4ff; margin-bottom: 12px; }
+  .card p { font-size: 13px; line-height: 1.8; color: var(--text); margin-bottom: 10px; }
+  .card i { color: var(--neon-soft); }
+  .controls { margin: 14px 0 20px; padding: 13px 16px; background: #0a0b12; border: 1px solid var(--border); border-radius: 6px; font-size: 11px; line-height: 2; color: var(--dim); }
   .controls b { color: var(--neon-soft); font-weight: normal; }
-  .btn { pointer-events: auto; cursor: pointer; background: var(--neon); border: none; color: #fff; font-family: inherit; font-size: 12px; letter-spacing: 2px; font-weight: bold; padding: 12px 24px; border-radius: 6px; }
+  .controls .warn { color: var(--amber); }
+  .btn { pointer-events: auto; cursor: pointer; background: var(--neon); border: none; color: #fff; font-family: inherit; font-size: 12px; letter-spacing: 2px; font-weight: bold; padding: 12px 26px; border-radius: 6px; }
   .btn:hover { background: var(--neon-soft); box-shadow: 0 0 24px rgba(139,92,246,.5); }
   .hidden { display: none !important; }
-  .tag { display: inline-block; font-size: 10px; letter-spacing: 1px; border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; color: var(--dim); margin-right: 6px; }
   #death-cause { color: var(--bad); }
-  #win-lost { white-space: pre-line; }
-  .mem { color: var(--amber); }
-
-  /* ---------- dialog ---------- */
-  #dialog { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); width: min(560px, 92vw); z-index: 15; background: rgba(13,13,23,0.96); border: 1px solid var(--neon); border-radius: 8px; padding: 18px 22px; box-shadow: 0 0 40px rgba(139,92,246,0.25); }
-  #dlg-title { font-size: 12px; letter-spacing: 3px; margin-bottom: 8px; }
-  #dlg-body { font-size: 12px; line-height: 1.8; color: var(--text); margin-bottom: 14px; }
-  #dlg-opts { display: flex; flex-direction: column; gap: 6px; }
-  .dlg-btn { pointer-events: auto; cursor: pointer; text-align: left; background: #12121f; border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 11px; letter-spacing: 1px; padding: 8px 12px; border-radius: 4px; }
-  .dlg-btn:hover { border-color: var(--neon); color: #fff; }
-  .dlg-btn.dim { border-color: transparent; color: var(--dim); }
+  #death-stats, #win-score { color: var(--amber); letter-spacing: 2px; }
+  .tag { display: inline-block; font-size: 10px; letter-spacing: 1px; border: 1px solid var(--border); border-radius: 4px; padding: 3px 8px; color: var(--dim); margin-right: 6px; }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
 
-<div id="vignette" class="hud"></div>
-<div id="whispers"></div>
+<div id="noisebox" class="hud">
+  <div class="lbl">NOISE</div>
+  <div id="noisebar"><div id="noise-fill"></div></div>
+</div>
 
-<div id="topleft" class="hud">
+<div id="objective" class="hud"></div>
+<div id="logwrap"><div id="log"></div></div>
+
+<div id="vitals" class="hud">
   <div class="bar-row">
-    <div class="bar-label"><span>HP</span><span id="hp-val">100</span></div>
+    <div class="bar-label"><span>HEALTH</span></div>
     <div class="bar"><div class="bar-fill" id="hp-fill"></div></div>
   </div>
   <div class="bar-row">
-    <div class="bar-label"><span>HUNGER</span></div>
-    <div class="bar"><div class="bar-fill" id="hunger-fill"></div></div>
-  </div>
-  <div class="bar-row">
-    <div class="bar-label"><span>SURVIVAL INSTINCT</span></div>
-    <div class="bar"><div class="bar-fill" id="instinct-fill"></div></div>
+    <div class="bar-label"><span>STAMINA</span></div>
+    <div class="bar"><div class="bar-fill" id="st-fill"></div></div>
   </div>
 </div>
 
-<div id="dayclock" class="hud">
-  <div id="day">DAY 3653</div>
-  <div id="clock">◐ DAWN</div>
-</div>
-
+<div id="ammo" class="hud">●●●●●● <span style="color:var(--dim)">+0</span></div>
 <div id="inv" class="hud"></div>
-
-<div id="logwrap">
-  <div id="logtitle">// RUMOR TERMINAL</div>
-  <div id="log"></div>
-</div>
-
-<div id="dialog" class="hidden">
-  <div id="dlg-title">NPC</div>
-  <div id="dlg-body">...</div>
-  <div id="dlg-opts"></div>
-</div>
 
 <!-- title -->
 <div id="overlay-title" class="overlay">
   <div class="card">
     <div class="micro">ASSIGNED DESIGN BLUEPRINT · WRITTEN BY: HELPLESS PEOPLE</div>
-    <h1>POST APOCALYPTIC INDIA</h1>
-    <p>10 years. 3,653 days inside. The lock has not turned. Today it does — and you do not know if <i>they</i> are gone.</p>
-    <p style="color:var(--dim)">Scavenge food. Read your <b style="color:var(--good)">instinct</b> — it whispers where danger hides, and it lies to you when you starve. Blood stays. Help the ones still breathing. Find the radio part. Call the boats.</p>
+    <h1>POST APOCALYPTIC INDIA — WAVES</h1>
+    <p>10 years behind a locked door. Tonight the food ran out. You have a steel pipe, a revolver with <i>six rounds</i>, and no idea if the street is empty.</p>
+    <p style="color:var(--dim)">It is not. <b style="color:var(--bad)">Sound is the enemy</b> — sprinting, pipes, and especially <span class="warn" style="color:var(--amber)">gunshots</span> pull them in. Watch the <i>eye</i>: <b style="color:#fbbf24">?</b> heard · <b style="color:#dc2626">◉</b> hunting. Three waves. The last one is a <b style="color:var(--bad)">horde</b> — you cannot kill it all. Flip cars, burn flares, survive until dawn.</p>
     <div class="controls">
-      <b>WASD</b> move &nbsp;·&nbsp; <b>MOUSE</b> aim &nbsp;·&nbsp; <b>LMB</b> steel pipe &nbsp;·&nbsp; <b>E</b> interact &nbsp;·&nbsp; <b>Q</b> eat &nbsp;·&nbsp; <b>H</b> medkit<br>
-      <b>F</b> torch / drop flare &nbsp;·&nbsp; <b>SHIFT</b> sprint (burns food) &nbsp;·&nbsp; <b>M</b> mute
+      <b>WASD</b> move (shift = sprint, loud) · <b>MOUSE</b> aim · <b>LMB</b> attack · <b>1</b> pipe (quiet) · <b>2</b> revolver (loud)<br>
+      <b>R</b> reload · <b>Q</b> eat · <b>C</b> bandage · <b>F</b> drop flare · <b>hold E</b> flip car · <b>SPACE</b> struggle when grabbed · <b>M</b> mute
     </div>
     <button id="btn-start" class="btn">OPEN THE DOOR →</button>
-    <div style="margin-top:16px"><span class="tag">dark aesthetic</span><span class="tag">gore + survival instinct</span><span class="tag">prototype v0.1</span></div>
+    <div style="margin-top:16px"><span class="tag">dark aesthetic</span><span class="tag">gore + survival instinct</span><span class="tag">v0.2 — one night, ~8 min</span></div>
   </div>
 </div>
 
@@ -139,21 +117,22 @@
 <div id="overlay-death" class="overlay hidden">
   <div class="card">
     <div class="micro">THE HOUSE REMEMBERS</div>
-    <h1>YOU DID NOT SEE THE DAWN</h1>
+    <h1>THE STREET KEEPS YOU</h1>
     <p id="death-cause">...</p>
-    <p style="color:var(--dim)">A candle will burn where you fell. Someone will open the door next. Honor your memorials for +15 instinct.</p>
-    <button id="btn-respawn" class="btn">OPEN THE DOOR AGAIN →</button>
+    <p id="death-stats">...</p>
+    <p style="color:var(--dim)">Ten years survived in one room. One night spent outside was enough. Someone will open the door next.</p>
+    <button id="btn-retry" class="btn">OPEN THE DOOR AGAIN →</button>
   </div>
 </div>
 
 <!-- win -->
 <div id="overlay-win" class="overlay hidden">
   <div class="card">
-    <div class="micro">EXTRACTION COMPLETE</div>
-    <h1>THE BOATS CAME AT DAWN</h1>
-    <p id="win-lost" class="mem"></p>
-    <p style="color:var(--dim)">The water takes you away from the question. You never learn the answer: <i>are they gone?</i></p>
-    <button id="btn-again" class="btn">RUN AGAIN →</button>
+    <div class="micro">DAWN — 5:41 AM</div>
+    <h1>THE HORDE MOVES ON</h1>
+    <p style="color:var(--dim)">Grey light. Wet ash. The street empties the way it filled — like a tide deciding you were not worth it. You go back inside. You bar the door. You start counting days again.</p>
+    <p id="win-score">...</p>
+    <button class="btn" onclick="location.reload()">RUN IT AGAIN →</button>
   </div>
 </div>
 
