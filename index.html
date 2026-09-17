@@ -29,7 +29,7 @@
 
   /* ---------- 3D gun (Spline) ---------- */
   #gun3d-wrap {
-    position: fixed; right: -4vw; bottom: -7vh; width: 48vw; height: 52vh;
+    position: fixed; right: -6vw; bottom: -10vh; width: 58vw; height: 56vh;
     z-index: 8; pointer-events: none; opacity: 0; transition: opacity .8s;
     transform: translate(calc(var(--ax, 0px) + var(--kx, 0px)), calc(var(--ay, 0px) + var(--kx, 0px) * 0.35)) rotate(var(--kr, 0deg));
     will-change: transform;
@@ -38,8 +38,8 @@
   #gun3d-inner {
     width: 100%; height: 100%;
     /* crop to the gun: mask out the scene's baked-in title text up top */
-    -webkit-mask-image: radial-gradient(ellipse 58% 48% at 50% 72%, #000 46%, transparent 74%);
-    mask-image: radial-gradient(ellipse 58% 48% at 50% 72%, #000 46%, transparent 74%);
+    -webkit-mask-image: radial-gradient(ellipse 62% 46% at 50% 68%, #000 48%, transparent 76%);
+    mask-image: radial-gradient(ellipse 62% 46% at 50% 68%, #000 48%, transparent 76%);
     filter: brightness(0.85) saturate(0.7) contrast(1.08);
   }
   /* night grade lives INSIDE the masked element so edges feather correctly */
@@ -125,7 +125,7 @@
     catch { mod = await import('https://esm.sh/@splinetool/runtime@1'); }
     const { Application } = mod;
     const app = new Application(document.getElementById('gun3d'));
-    await app.load('https://prod.spline.design/N9CtxBjYbo1M3O4q/scene.splinecode');
+    await app.load('https://prod.spline.design/1atW635cd-3bkmaE/scene.splinecode');
     window.__gun3dReady = true;
     wrap.classList.add('ready');
     // recoil kick
@@ -155,7 +155,7 @@
   <div class="card">
     <div class="micro">ASSIGNED DESIGN BLUEPRINT · WRITTEN BY: HELPLESS PEOPLE</div>
     <h1>POST APOCALYPTIC INDIA — LAST STAND</h1>
-    <p>You hold your ground. They come out of the fog in <i>one wave per level</i> — each level deeper, darker, hungrier. Six in the cylinder, a pocket of rounds, and a street that does not care.</p>
+    <p>You hold your ground with an <i>AK-47</i> — 30 in the mag, two spare mags, ninety chances total. They come out of the fog in <i>one wave per level</i> — each level deeper, darker, hungrier.</p>
     <div class="levels">
       <div class="lvl"><b>LEVEL 1 — SLUM STREET <i>10 WALKERS</i></b><span>Dead towers, dead autos, one dying lamp. They are slow. You are learning.</span></div>
       <div class="lvl"><b>LEVEL 2 — VILLAGE ROAD <i>16 FREAKS</i></b><span>Sugarcane hides runners. The bent lamp lies about distance.</span></div>
@@ -163,8 +163,8 @@
       <div class="lvl"><b>LEVEL 4 — THE GHATS <i>30 OF THEM</i></b><span>The river takes everything twice. 46 rounds, brutes in the tide. Headshots or death.</span></div>
     </div>
     <div class="controls">
-      <b>MOUSE</b> aim · <b>LMB</b> fire · <b>R</b> reload (2s, cylinder flip) · <b>M</b> mute<br>
-      headshots drop instantly · anything that reaches you bites hard · no moving, no mercy
+      <b>MOUSE</b> aim · <b>HOLD LMB</b> full auto · <b>R</b> reload (2s mag swap) · <b>M</b> mute<br>
+      AK-47: 30-round mag + 2 spares = 90 total · headshots drop instantly · carry rounds forward
     </div>
     <button id="btn-start" class="btn">HOLD THE LINE →</button>
     <div><span class="tag">dark aesthetic</span><span class="tag">gore</span><span class="tag">v0.3 — 4 levels, one wave each</span></div>

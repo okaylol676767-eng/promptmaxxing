@@ -24,6 +24,7 @@ window.addEventListener('resize', resize);
 resize();
 
 /* ---------------- palette ---------------- */
+const GUN = { name: 'AK-47', rpm: 600, dmg: 55, dmgHead: 250, spread: 0.035, reload: 2.0 };
 const COL = {
   bg: '#060709', text: '#c4b5fd', neon: '#8b5cf6', dim: '#6d6a85',
   blood: '#7a0e14', bloodDark: '#45080b', gore: '#5c0a10',
@@ -252,7 +253,7 @@ const LANES = [0.12, 0.3, 0.5, 0.7, 0.88];   // approach lanes (x fraction)
 
 const game = {
   level: 0, state: 'title',          // title | levelstart | playing | levelclear | gameover | won
-  ammo: 0, magSize: 6, cylinder: 6, reloading: 0,
+  ammo: 0, magSize: 30, cylinder: 30, reloading: 0,
   kills: 0, totalKills: 0, waveTotal: 0, spawnT: 0, spawnSide: 0,
   recoil: 0, muzzle: 0, shake: 0, hitFlash: 0, redPulse: 0, t: 0,
   breath: 0, hurtT: 0, banner: 0
@@ -328,45 +329,49 @@ function updateZombies(dt) {
    GUN — revolver, FPS viewmodel: recoil kick, cylinder reload
    ============================================================ */
 function shoot() {
-  if (game.state !== 'playing' && game.state !== 'title') return;
-  if (game.state === 'title') return;
+  if (game.state !== 'playing') return;
   if (game.reloading > 0) return;
-  if (game.cylinder <= 0) { sfx.dryfire(); log('empty. press R.', 'bad'); return; }
+  if (game.cylinder <= 0) { sfx.dryfire(); log('mag empty — R to swap', 'bad'); return; }
   game.cylinder--; game.recoil = 1; game.muzzle = 1; game.shake = 6;
+  game.shotsFired = (game.shotsFired || 0) + 1;
   sfx.shot();
   window.dispatchEvent(new Event('gun3d-kick')); // 3D viewmodel recoil
-  // hit test: nearest zombie whose body contains the crosshair
+  // AK spread: aim point wanders at range (first shot accurate)
+  const spreadScale = (game.shotsFired % 30 === 1) ? 0 : 1 + (game.shotsFired % 30) * 0.12;
+  const sx = cursor.x + rand(-1, 1) * 26 * spreadScale;
+  const sy = cursor.y + rand(-1, 1) * 26 * spreadScale;
+  // hit test: nearest zombie whose body contains the spread aim point
   let hit = null, bestDepth = -1;
   for (const z of zombies) {
     if (z.dead) continue;
     const bw = 46 * z.scale * 2.1, bh = 150 * z.scale * 1.7;
     const zx = z.x, zy = z.y - bh * 0.55;
-    if (Math.abs(cursor.x - zx) < bw / 2 && cursor.y > zy - bh * 0.5 && cursor.y < zy + bh * 0.62) {
+    if (Math.abs(sx - zx) < bw / 2 && sy > zy - bh * 0.5 && sy < zy + bh * 0.62) {
       if (z.scale > bestDepth) { bestDepth = z.scale; hit = z; }
     }
   }
   if (hit) {
     const headTop = hit.y - 150 * hit.scale * 1.7 * 0.95, headBot = headTop + 34 * hit.scale * 1.9;
-    const headshot = cursor.y < headBot;
-    damageZombie(hit, headshot ? 250 : randi(55, 90), cursor.x, cursor.y, headshot);
+    const headshot = sy < headBot;
+    damageZombie(hit, headshot ? GUN.dmgHead : GUN.dmg + randi(-6, 12), sx, sy, headshot);
   } else {
     // miss: spark on ground/wall
-    for (let i = 0; i < 5; i++) particles.push({ x: cursor.x + rand(-8, 8), y: cursor.y + rand(-8, 8), vx: rand(-60, 60), vy: rand(-80, 10), life: 0.2, max: 0.2, col: '#fcd34d', size: 2, drag: 0.9 });
+    for (let i = 0; i < 5; i++) particles.push({ x: sx + rand(-8, 8), y: sy + rand(-8, 8), vx: rand(-60, 60), vy: rand(-80, 10), life: 0.2, max: 0.2, col: '#fcd34d', size: 2, drag: 0.9 });
   }
-  if (game.cylinder === 0) log('cylinder empty — R to reload', 'bad');
+  if (game.cylinder === 0) log('mag dry — R to swap mags', 'bad');
 }
 function reload() {
   if (game.state !== 'playing' || game.reloading > 0) return;
   const need = game.magSize - game.cylinder;
-  if (need === 0 || game.ammo <= 0) { if (game.ammo <= 0) log('no rounds left.', 'bad'); return; }
-  game.reloading = 2.0; sfx.reload();
+  if (need === 0 || game.ammo <= 0) { if (game.ammo <= 0) log('all 90 spent. nothing left to feed it.', 'bad'); return; }
+  game.reloading = GUN.reload; sfx.reload();
   window.dispatchEvent(new Event('gun3d-reload')); // 3D viewmodel reload dip
 }
 function finishReload() {
   game.reloading = 0;
   const need = game.magSize - game.cylinder, take = Math.min(need, game.ammo);
-  game.cylinder += take; game.ammo -= take;
-  log(take + ' rounds loaded. ' + game.ammo + ' left in the pocket.', 'good');
+  game.cylinder += take; game.ammo -= take; game.shotsFired = 0; // fresh mag, tight spread
+  log('mag swapped. ' + (game.cylinder + game.ammo) + ' rounds left of 90.', 'good');
 }
 
 /* ============================================================
@@ -437,8 +442,11 @@ function floatText(x, y, text, col) { floaters.push({ x, y, text, col, t: 1 }); 
 function startLevel(i) {
   game.level = i;
   const L = LEVELS[i];
-  const leftover = i > 0 ? game.cylinder + game.ammo : 0; // efficiency is rewarded
-  game.ammo = L.ammo + leftover; game.cylinder = Math.min(6, game.ammo);
+  const leftover = i > 0 ? game.cylinder + game.ammo : 0; // precision carries forward
+  const total = Math.min(90, L.ammo * 2 + leftover);      // hard cap: 30 mag + 60 spare
+  game.cylinder = Math.min(game.magSize, total);
+  game.ammo = total - game.cylinder;
+  game.shotsFired = 0;
   game.kills = 0; game.waveTotal = L.wave; game.spawned = 0; game.spawnT = 1.2; game.spawnSide = 0;
   zombies = []; corpses = []; particles = []; bloodStains = []; floaters = [];
   playerHP.v = 100;
@@ -446,13 +454,13 @@ function startLevel(i) {
   document.getElementById('overlay-levelclear').classList.add('hidden');
   document.getElementById('overlay-gameover').classList.add('hidden');
   document.getElementById('overlay-title').classList.add('hidden');
-  log(`${L.name} — ${L.wave} of them. ${game.ammo} rounds.`, 'obj');
+  log(`${L.name} — ${L.wave} of them. ${game.cylinder + game.ammo}/90 rounds.`, 'obj');
 }
 function levelClear() {
   game.state = 'levelclear'; sfx.clear();
   if (game.level >= LEVELS.length - 1) { win(); return; }
   document.getElementById('lc-title').textContent = LEVELS[game.level].name + ' — CLEARED';
-  document.getElementById('lc-stats').textContent = `KILLS ${game.kills}/${game.waveTotal} · ROUNDS LEFT ${game.cylinder + game.ammo} · HP ${Math.round(playerHP.v)}`;
+  document.getElementById('lc-stats').textContent = `KILLS ${game.kills}/${game.waveTotal} · ROUNDS LEFT ${game.cylinder + game.ammo}/90 · HP ${Math.round(playerHP.v)}`;
   document.getElementById('lc-next').textContent = 'GO TO ' + LEVELS[game.level + 1].name + ' →';
   setTimeout(() => document.getElementById('overlay-levelclear').classList.remove('hidden'), 900);
 }
@@ -742,14 +750,16 @@ function renderCrosshair() {
    ============================================================ */
 const hpFill = document.getElementById('hp-fill');
 const ammoEl = document.getElementById('ammo');
+let lastAmmoSnapshot = '';
 const invEl = document.getElementById('inv');
 const objectiveEl = document.getElementById('objective');
 function updateHUD() {
   hpFill.style.width = clamp(Math.max(0, playerHP.v), 0, 100) + '%';
   hpFill.style.background = playerHP.v < 30 ? '#dc2626' : '#8b5cf6';
-  let cyl = '';
-  for (let i = 0; i < game.magSize; i++) cyl += i < game.cylinder ? '●' : '○';
-  ammoEl.innerHTML = cyl + ` <span style="color:var(--dim)">+${game.ammo}</span>` + (game.reloading > 0 ? ' <span class="rl">RELOADING</span>' : '');
+  // AK mag readout: bars for the 30, count for reserves
+  let mag = '';
+  for (let i = 0; i < game.magSize; i += 3) mag += i < game.cylinder ? '▮' : '▯';
+  ammoEl.innerHTML = `<span style="font-size:13px;letter-spacing:1px">AK-47</span> ${mag} <span style="color:var(--text)">${game.cylinder}</span><span style="color:var(--dim)">/90 · +${game.ammo}</span>` + (game.reloading > 0 ? ' <span class="rl">RELOADING</span>' : '');
   invEl.innerHTML = `<span class="inv-item">KILLS ${game.kills} / ${game.waveTotal}</span><span class="inv-item">R — RELOAD</span>`;
   objectiveEl.textContent = LEVELS[game.level].name;
 }
@@ -764,9 +774,18 @@ function loop(now) {
   tick(dt);
   requestAnimationFrame(loop);
 }
+// full-auto fire: hold LMB, GUN.rpm rounds/min
+let mouseDown = false, fireCd = 0;
+function autoFire(dt) {
+  fireCd -= dt;
+  if (!mouseDown || game.state !== 'playing' || game.reloading > 0) return;
+  if (game.cylinder === 0) { if (game.ammo > 0) reload(); return; } // auto mag-swap on dry
+  if (fireCd <= 0) { fireCd = 60 / GUN.rpm; shoot(); }
+}
 function tick(dt) {
   if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) resize();
   update(dt);
+  autoFire(dt);
   if (game.state !== 'title') { render(); updateHUD(); }
 }
 requestAnimationFrame(loop);
@@ -790,8 +809,10 @@ window.__aimFire = () => {
 window.addEventListener('mousemove', (e) => { cursor.x = e.clientX; cursor.y = e.clientY; });
 canvas.addEventListener('mousedown', (e) => {
   if (game.state === 'title') { beginRun(); return; }
-  if (e.button === 0) shoot();
+  if (e.button === 0) { mouseDown = true; shoot(); }
 });
+window.addEventListener('mouseup', (e) => { if (e.button === 0) mouseDown = false; });
+window.addEventListener('blur', () => { mouseDown = false; });
 window.addEventListener('keydown', (e) => {
   if (e.code === 'KeyR') reload();
   if (e.code === 'KeyM') { muted = !muted; if (master) master.gain.value = muted ? 0 : 0.4; log(muted ? 'muted.' : 'sound on.'); }
